@@ -27,7 +27,7 @@
 import numpy as np
 import numpy.linalg
 from scipy.optimize import fmin_slsqp
-from pinocchio import forwardKinematics, log, neutral
+from pinocchio import forwardKinematics, log, neutral, log6
 import eigenpy
 
 class CallbackLogger:
@@ -66,10 +66,29 @@ class InverseKinematics (object):
         self.waistRefPose = self.data.oMi [robot.waistJointId].copy ()
 
     def cost (self, q):
-        # write your code here
+        current_data = self.robot.model.createData()
+        forwardKinematics(self.robot.model, current_data, q)
+
+        leftFootPose = current_data.oMi[self.robot.leftFootJointId]
+        rightFootPose = current_data.oMi[self.robot.rightFootJointId]
+        waistPose = current_data.oMi[self.robot.waistJointId]
+
+        right_err = np.abs(log(rightFootPose.inverse() * self.rightFootRefPose))
+        left_err = np.abs(log(leftFootPose.inverse() * self.leftFootRefPose))
+        waist_err = np.abs(log(waistPose.inverse() * self.waistRefPose))
+
+
+        return right_err.dot(right_err) + left_err.dot(left_err) + waist_err.dot(waist_err)
+
+    def constraint_eq(self, q):
+        quaternion = q[3:7]
+        return np.array( numpy.linalg.norm(quaternion) -1 )
 
     def solve (self, q):
         # write your code here
+        q_optimal = fmin_slsqp(self.cost, q, f_eqcons = self.constraint_eq)
+
+        return q_optimal
 
 if __name__ == "__main__":
      from talos import Robot
