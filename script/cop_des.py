@@ -27,6 +27,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from tools import Affine, Constant, Piecewise
+import numpy as np
 
 # Compute a desired trajectory for the center of pressure, piecewise affine linking the
 # input step positions in the plane
@@ -39,7 +40,28 @@ class CoPDes(Piecewise):
     #   - end: final position of the CoP
     def __init__(self, start, steps, end):
         super().__init__()
-        # write your code here
+
+        self.segments.append(Affine(0, self.double_support_time, start, steps[0]))
+
+        t_init = 0
+        t_end = 0
+        
+        for i,step  in enumerate(steps[:-1]):
+            t_init = self.single_support_time * i + self.double_support_time * (i+1)
+            t_end = t_init + self.single_support_time
+            self.segments.append(Constant(t_init, t_end, step))
+
+            t_init = t_end
+            t_end = t_init + self.double_support_time
+            self.segments.append(Affine(t_init,t_end, step, steps[i+1]))
+
+        
+        t_init = t_end
+        t_end = t_init + self.double_support_time
+
+        self.segments.append(Affine(t_init ,t_end, steps[-1], end))
+        self.segments.append(Constant(t_end, np.inf, end))
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
