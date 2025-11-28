@@ -50,8 +50,12 @@ class SwingFootTrajectory(object):
         self.height = height
         # Write your code here
 
+
     def __call__(self, t):
         # write your code here
+        
+        
+        return
 
 # Computes a walking whole-body motion
 #

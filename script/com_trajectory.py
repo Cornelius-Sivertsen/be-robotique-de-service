@@ -53,8 +53,52 @@ class ComTrajectory(object):
         T = (1+n)*CoPDes.double_support_time + n * CoPDes.single_support_time
         N = int(T/self.delta_t) + 1
         self.N = N
+        
         # write your code here
-        return self.X
+
+
+        D = np.zeros(((N+2)*2, (N+1)*2))
+        for i in range(self.N+1):
+            D[2*i:2*i+2, 2*i:2*i+2] = I2
+            D[2*(i+1):2*(i+1)+2, 2*i:2*i+2] = -I2
+
+        d0 = np.zeros(((N+2)*2, 1))
+        d0[0:2, 0] = -self.start
+        d0[-2:, 0] = self.end
+
+        I_2N = np.identity(2*(N))
+
+        A = I_2N + (self.z_com/(self.g*self.delta_t**2)) * (D.T @ D)
+
+        COP = CoPDes(self.start, self.steps, self.end)
+        CoP_des = np.zeros(((N+1)*2))
+        for i in range(N):
+            CoP_des[i*2:(i+1)*2] = COP(i*self.delta_t)
+
+        b =  CoP_des - (self.z_com/(self.g*self.delta_t**2))* (D.T @ d0)
+
+        C = np.zeros((N*2, (2*N-4)))
+        C[2*1 : 2*(N-1), :] = np.identity((N-1-1)*2)
+
+        d = np.zeros(((N+1)*2, 1))
+        d[0:2, 0] = self.start
+        d[-2:, 0] = self.end
+        
+
+
+        AC = A @ C
+        rhs = b - A @ d
+
+        AC_pinv = np.linalg.pinv(AC)
+
+        X_bar = AC_pinv @ rhs
+
+        X = C @ X_bar + d
+        
+        print(X)
+        
+
+        #return self.X
 
     # Return projection of center of mass on horizontal plane at time t
     def __call__(self, t):

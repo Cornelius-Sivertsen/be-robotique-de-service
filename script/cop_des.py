@@ -46,7 +46,7 @@ class CoPDes(Piecewise):
         t_init = 0
         t_end = 0
         
-        for i,step  in enumerate(steps[:-1]):
+        for i,step in enumerate(steps[:-1]):
             t_init = self.single_support_time * i + self.double_support_time * (i+1)
             t_end = t_init + self.single_support_time
             self.segments.append(Constant(t_init, t_end, step))
