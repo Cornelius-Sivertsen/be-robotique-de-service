@@ -53,7 +53,65 @@ class ComTrajectory(object):
         T = (1+n)*CoPDes.double_support_time + n * CoPDes.single_support_time
         N = int(T/self.delta_t) + 1
         self.N = N
+        
         # write your code here
+
+
+        D = np.zeros((2*N+2, 2*N))
+        for i in range(self.N):
+            D[2*i:2*i+2, 2*i:2*i+2] = I2
+            D[2*(i+1):2*(i+1)+2, 2*i:2*i+2] = -I2
+
+        d0 = np.zeros((2*N+2, 1))
+        d0[0:2, 0] = -self.start
+        d0[-2:, 0] = self.end
+
+        I_2N = np.identity(2*(N))
+
+
+        print(f"N: {N}")
+        print(f"d0: {d0.shape}")
+        print(f"I2N: {I_2N.shape}")
+        print(f"D: {D.shape}")
+        print(f"dtd: {(D.T @ D).shape}")
+        print(f"dtd0: {(D.T @ d0).shape}")
+
+        A = I_2N + ((self.z_com/(self.g*self.delta_t**2)) * (D.T @ D))
+
+        COP = CoPDes(self.start, self.steps, self.end)
+        CoP_des = np.zeros((2*N,1))
+        for i in range(N):
+            CoP_des[i*2:(i+1)*2,0] = COP(i*self.delta_t)
+
+        b =  CoP_des - (self.z_com/(self.g*self.delta_t**2))* (D.T @ d0)
+
+        C = np.zeros((N*2, (2*N-4)))
+        C[2*1 : 2*(N-1), :] = np.identity((N-1-1)*2)
+
+        d = np.zeros(((N)*2, 1))
+        d[0:2, 0] = self.start
+        d[-2:, 0] = self.end
+        
+
+
+        AC = A @ C
+        rhs = b - A @ d
+
+        AC_pinv = np.linalg.pinv(AC)
+
+        X_bar = AC_pinv @ rhs
+
+        self.X = np.array((C @ X_bar + d).T)[0]
+
+        print(f"b: {b.shape}")
+        print(f"Ad: {(A @ d).shape}")
+        print(f"pinv: {AC_pinv.shape}")
+        print(f"rhs: {rhs.shape}")
+        print(f"xbar: {X_bar.shape}")
+        print(f"c*xbar: {(C @ X_bar).shape}")
+        print(f"d: {d.shape}")
+        print(self.X.shape)
+        
         return self.X
 
     # Return projection of center of mass on horizontal plane at time t
@@ -81,6 +139,7 @@ if __name__ == "__main__":
     X = com_trajectory.compute()
     times = 0.01 * np.arange(len(X)//2)
     com = np.array(list(map(com_trajectory, times)))
+    print(f"com: {com.shape}")
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.set_xlabel("time")
