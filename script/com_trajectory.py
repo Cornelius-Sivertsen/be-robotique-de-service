@@ -69,12 +69,12 @@ class ComTrajectory(object):
         I_2N = np.identity(2*(N))
 
 
-        print(f"N: {N}")
-        print(f"d0: {d0.shape}")
-        print(f"I2N: {I_2N.shape}")
-        print(f"D: {D.shape}")
-        print(f"dtd: {(D.T @ D).shape}")
-        print(f"dtd0: {(D.T @ d0).shape}")
+        # print(f"N: {N}")
+        # print(f"d0: {d0.shape}")
+        # print(f"I2N: {I_2N.shape}")
+        # print(f"D: {D.shape}")
+        # print(f"dtd: {(D.T @ D).shape}")
+        # print(f"dtd0: {(D.T @ d0).shape}")
 
         A = I_2N + ((self.z_com/(self.g*self.delta_t**2)) * (D.T @ D))
 
@@ -103,14 +103,14 @@ class ComTrajectory(object):
 
         self.X = np.array((C @ X_bar + d).T)[0]
 
-        print(f"b: {b.shape}")
-        print(f"Ad: {(A @ d).shape}")
-        print(f"pinv: {AC_pinv.shape}")
-        print(f"rhs: {rhs.shape}")
-        print(f"xbar: {X_bar.shape}")
-        print(f"c*xbar: {(C @ X_bar).shape}")
-        print(f"d: {d.shape}")
-        print(self.X.shape)
+        # print(f"b: {b.shape}")
+        # print(f"Ad: {(A @ d).shape}")
+        # print(f"pinv: {AC_pinv.shape}")
+        # print(f"rhs: {rhs.shape}")
+        # print(f"xbar: {X_bar.shape}")
+        # print(f"c*xbar: {(C @ X_bar).shape}")
+        # print(f"d: {d.shape}")
+        # print(self.X.shape)
         
         return self.X
 
@@ -139,7 +139,6 @@ if __name__ == "__main__":
     X = com_trajectory.compute()
     times = 0.01 * np.arange(len(X)//2)
     com = np.array(list(map(com_trajectory, times)))
-    print(f"com: {com.shape}")
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.set_xlabel("time")

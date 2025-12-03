@@ -50,6 +50,10 @@ class SwingFootTrajectory(object):
         self.height = height
         # Write your code here
 
+        time = np.arange(t_init,t_end)
+
+        
+
 
     def __call__(self, t):
         # write your code here
