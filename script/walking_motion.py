@@ -50,16 +50,41 @@ class SwingFootTrajectory(object):
         self.height = height
         # Write your code here
 
-        time = np.arange(t_init,t_end)
+        x0 = init[0]
+        x1 = end[0]
+        y0 = init[1]
+        y1 = end[1]
+        z0 = init[2]
+        z1 = end[2]
+        T = (t_end-t_init)
 
-        
+        self.ax = -2* (x1-x0)/((T)**3)
+        self.bx = 3* (x1-x0)/((T)**2)
+        self.dx = x1
 
+        self.ay = -2* (y1-y0)/((T)**3)
+        self.by = 3* (y1-y0)/((T)**2)
+        self.dy = y1
+
+        self.az = -(height-z1)*16/(5*T**4)
+        self.bz = 2*self.az*T
+        self.cz = -2*self.az*T**2
+        self.dz = 0
+        self.ez = z0
 
     def __call__(self, t):
         # write your code here
+
+        if t < self.t_init:
+            t = self.t_init
+        elif t > self.t_end:
+            t = self.t_end
         
+        x = self.ax*(t-self.t_init)**3+self.bx*(t-self.t_init)+self.dx
+        y = self.ay*(t-self.t_init)**3+self.by*(t-self.t_init)+self.dy
+        z = self.az*(t-self.t_init)**4+self.bz*(t-self.t_init)**3+self.cz*(t-self.t_init)**2+self.dz*(t-self.t_init)+self.ez
         
-        return
+        return np.array([x,y,z])
 
 # Computes a walking whole-body motion
 #
@@ -71,6 +96,8 @@ class SwingFootTrajectory(object):
 #
 class WalkingMotion(object):
     step_height = 0.05
+    single_support_time = .5
+    double_support_time = .1
 
     def __init__(self, robot):
         self.robot = robot
@@ -93,6 +120,51 @@ class WalkingMotion(object):
         self.lf_traj = Piecewise()
         self.rf_traj = Piecewise()
         # write your code here
+
+        initial_left_foot_position = start_l = data.oMi[self.robot.leftFootJointId].translation
+        z_rest = initial_left_foot_position[2]
+
+        steps_ = [np.append(step, z_rest) for step in steps_]
+
+        steps_r = steps_[1::2]
+        steps_l = steps_[0::2]
+
+        # TODO: proper init
+        self.lf_traj.segments.append(Constant(0,self.double_support_time,steps_[0]))
+        self.rf_traj.segments.append(Constant(0,self.double_support_time,steps_[0]))
+
+        for i,step in enumerate(steps[:-1]):
+            t_init = self.single_support_time * i + self.double_support_time * (i+1)
+            t_end = t_init + self.single_support_time
+            self.lf_traj.segments.append(Constant(t_init,t_end,step))
+            self.rf_traj.segments.append(Constant(t_init,t_end,step))
+                                         
+            t_init = t_end
+            t_end = t_init + self.double_support_time                           
+            
+            if step in steps_l:
+                self.rf_traj.segments.append(Constant(t_init,t_end,step))
+                self.lf_traj.segments.append(SwingFootTrajectory(t_init,t_end,step,steps[i+1],self.step_height))
+
+            elif step in steps_r:
+                self.lf_traj.segments.append(Constant(t_init,t_end,step))
+                self.rf_traj.segments.append(SwingFootTrajectory(t_init,t_end,step,steps[i+1],self.step_height))
+
+        
+        # TODO: last step
+        t_init = t_end
+        t_end = t_init + self.double_support_time
+
+        self.lf_traj.segments.append(Constant(t_init,t_end,step))
+
+
+        self.segments.append(Affine(t_init ,t_end, steps[-1], end))
+        self.segments.append(Constant(t_end, np.inf, end))
+
+
+
+
+
 
 
 if __name__ == "__main__":
