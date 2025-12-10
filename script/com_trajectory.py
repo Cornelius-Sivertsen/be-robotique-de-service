@@ -83,6 +83,8 @@ class ComTrajectory(object):
         for i in range(N):
             CoP_des[i*2:(i+1)*2,0] = COP(i*self.delta_t)
 
+        self.cop_des = COP
+
         b =  CoP_des - (self.z_com/(self.g*self.delta_t**2))* (D.T @ d0)
 
         C = np.zeros((N*2, (2*N-4)))

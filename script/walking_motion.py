@@ -44,6 +44,8 @@ from tools import Constant, Piecewise
 # The orientation of the foot is kept as in intial pose.
 class SwingFootTrajectory(object):
     def __init__(self, t_init, t_end, init, end, height):
+
+        print(f"assert: init: {init} | end: {end}")
         assert(init[2] == end[2])
         self.t_init = t_init
         self.t_end = t_end
@@ -60,15 +62,17 @@ class SwingFootTrajectory(object):
 
         self.ax = -2* (x1-x0)/((T)**3)
         self.bx = 3* (x1-x0)/((T)**2)
-        self.dx = x1
+        self.cx = 0
+        self.dx = x0
 
         self.ay = -2* (y1-y0)/((T)**3)
         self.by = 3* (y1-y0)/((T)**2)
-        self.dy = y1
+        self.cy = 0
+        self.dy = y0
 
-        self.az = -(height-z1)*16/(5*T**4)
-        self.bz = 2*self.az*T
-        self.cz = -2*self.az*T**2
+        self.az = (height-z0)*16/(T**4)
+        self.bz = -2*self.az*T
+        self.cz = self.az*T**2
         self.dz = 0
         self.ez = z0
 
@@ -127,11 +131,11 @@ class WalkingMotion(object):
         x_init = initial_left_foot_position[0]
         y_init = initial_left_foot_position[1]
 
-        initial_step = np.array([x_init,y_init,z_rest])
+        # initial_step = np.array([x_init,y_init,z_rest])
 
-        steps_ = [np.append(step, z_rest) for step in steps_]
+        # steps_ = [np.append(step, z_rest) for step in steps_]
 
-        steps_.insert(0,initial_step)
+        # steps_.insert(0,initial_step)
 
         steps_r = steps_[1::2]
         steps_l = steps_[0::2]
@@ -151,11 +155,11 @@ class WalkingMotion(object):
             t_init = t_end
             t_end = t_init + self.double_support_time                           
             
-            if step in steps_l:
+            if i % 2 == 0:
                 self.rf_traj.segments.append(Constant(t_init,t_end,step))
                 self.lf_traj.segments.append(SwingFootTrajectory(t_init,t_end,step,steps_[i+1],self.step_height))
 
-            elif step in steps_r:
+            else:
                 self.lf_traj.segments.append(Constant(t_init,t_end,step))
                 self.rf_traj.segments.append(SwingFootTrajectory(t_init,t_end,step,steps_[i+1],self.step_height))
 
@@ -167,15 +171,39 @@ class WalkingMotion(object):
         last_step_right = steps_r[-1]
         last_step_left = steps_l[-1]
 
+        z_com = com_offset[2]
+
         com_final = np.array([
             (last_step_left[0]+last_step_right[0])/2,
             (last_step_left[1]+last_step_right[1])/2,
-            com_offset[2]
         ])
 
-        self.COM_trajectory = ComTrajectory(com_offset,steps_,com_final,com_offset[2])
-        self.COM_trajectory.compute()
+        steps_xy = [step[0:2] for step in steps_]
 
+        self.COM_trajectory = ComTrajectory(com_offset[0:2],steps_xy,com_final,z_com)
+        X = self.COM_trajectory.compute()
+        times = 0.01 * np.arange(len(X)//2)
+        com_positions = np.array(list(map(self.COM_trajectory, times)))
+
+        for com in com_positions:
+            np.append(com,z_com)
+
+        left_foot_positions = np.array(list(map(self.lf_traj, times))) 
+        right_foot_positions = np.array(list(map(self.rf_traj, times))) 
+
+        ik = InverseKinematics(self.robot)
+        configurations = [q0]
+
+        for i, (com, left_foot, right_foot) in enumerate(zip(com_positions, left_foot_positions, right_foot_positions)):
+            ik.rightFootRefPose.translation = left_foot
+            ik.leftFootRefPose.translation = right_foot
+            ik.waistRefPose.translation = com
+            q_last = configurations[i-1]
+
+            q_new = ik.solve(q_last)
+            configurations.append(q_new)
+
+        return configurations
 
 
 
@@ -212,11 +240,12 @@ if __name__ == "__main__":
     for q in configs:
         time.sleep(1e-2)
         robot.display(q)
-    delta_t = wm.com_trajectory.delta_t
-    times = delta_t*np.arange(wm.com_trajectory.N+1)
+    delta_t = wm.COM_trajectory.delta_t
+    times = delta_t*np.arange(wm.COM_trajectory.N+1)
     lf = np.array(list(map(wm.lf_traj, times)))
     rf = np.array(list(map(wm.rf_traj, times)))
-    cop_des = np.array(list(map(wm.com_trajectory.cop_des, times)))
+    cop_des = np.array(list(map(wm.COM_trajectory.cop_des, times)))
+    print(cop_des)
     fig = plt.figure()
     ax1 = fig.add_subplot(311)
     ax2 = fig.add_subplot(312)

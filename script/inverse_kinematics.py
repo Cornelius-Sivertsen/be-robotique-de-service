@@ -86,7 +86,7 @@ class InverseKinematics (object):
 
     def solve (self, q):
         # write your code here
-        q_optimal = fmin_slsqp(self.cost, q, f_eqcons = self.constraint_eq)
+        q_optimal = fmin_slsqp(self.cost, q, f_eqcons = self.constraint_eq, iprint=0)
 
         return q_optimal
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
      robot = Robot ()
      ik = InverseKinematics (robot)
-     ik.rightFootRefPose.translation = np.array ([0, -0.1, 0.1])
+     ik.rightFootRefPose.translation = np.array ([1, -0.1, 0.1])
      ik.leftFootRefPose.translation = np.array ([0, 0.1, 0.1])
      ik.waistRefPose.translation = np.array ([0, 0, 0.95])
 
