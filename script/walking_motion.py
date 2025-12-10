@@ -146,14 +146,17 @@ class WalkingMotion(object):
         t_init = 0
         t_end = 0
 
+        sst = self.single_support_time
+        dst = self.double_support_time
+
         for i,step in enumerate(steps_[:-1]):
-            t_init = self.single_support_time * i + self.double_support_time * (i+1)
-            t_end = t_init + self.single_support_time
+            t_init = sst * i + dst * (i+1)
+            t_end = t_init + dst
             self.lf_traj.segments.append(Constant(t_init,t_end,step))
             self.rf_traj.segments.append(Constant(t_init,t_end,step))
                                          
             t_init = t_end
-            t_end = t_init + self.double_support_time                           
+            t_end = t_init + sst
             
             if i % 2 == 0:
                 self.rf_traj.segments.append(Constant(t_init,t_end,step))
@@ -162,11 +165,9 @@ class WalkingMotion(object):
             else:
                 self.lf_traj.segments.append(Constant(t_init,t_end,step))
                 self.rf_traj.segments.append(SwingFootTrajectory(t_init,t_end,step,steps_[i+1],self.step_height))
-
         
         self.lf_traj.segments.append(Constant(t_end,np.inf,steps_[-1]))
         self.rf_traj.segments.append(Constant(t_end,np.inf,steps_[-1]))
-
 
         last_step_right = steps_r[-1]
         last_step_left = steps_l[-1]
