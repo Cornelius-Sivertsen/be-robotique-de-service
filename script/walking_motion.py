@@ -150,7 +150,7 @@ class WalkingMotion(object):
         dst = self.double_support_time
 
         for i,step in enumerate(steps_[:-1]):
-            t_init = sst * i + dst * (i+1)
+            t_init = sst * i + dst * (i)
             t_end = t_init + dst
             self.lf_traj.segments.append(Constant(t_init,t_end,step))
             self.rf_traj.segments.append(Constant(t_init,t_end,step))
