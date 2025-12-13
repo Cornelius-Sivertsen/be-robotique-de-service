@@ -143,13 +143,20 @@ class WalkingMotion(object):
         dst = self.double_support_time
 
         for i in range(len(steps_)-1):
+            print("=========================================================")
+            print(f"step number {i}")
             t_init = sst * i + dst * (i)
             t_end = t_init + dst
+            print(f"BEFORE CONST: t_init: {t_init}")
+            print(f"BEFORE CONST: t_end: {t_end}")
             self.lf_traj.segments.append(Constant(t_init,t_end,l_init))
             self.rf_traj.segments.append(Constant(t_init,t_end,r_init))
                                          
             t_init = t_end
             t_end = t_init + sst
+
+            print(f"BEFORE STEP: t_init: {t_init}")
+            print(f"BEFORE STEP: t_end: {t_end}")
 
             print(f"nl: {n_l}")
             print(f"nr: {n_r}")
@@ -198,7 +205,7 @@ class WalkingMotion(object):
         self.COM_trajectory = ComTrajectory(com_offset[0:2],steps_xy,com_final,z_com)
         X = self.COM_trajectory.compute()
         timestep = self.COM_trajectory.delta_t
-        times = timestep*np.arrange(self.COM_trajectory.N+1)
+        times = timestep*np.arange(self.COM_trajectory.N+1)
         com_positions = np.array(list(map(self.COM_trajectory, times)))
 
         for com in com_positions:
@@ -220,7 +227,6 @@ class WalkingMotion(object):
             configurations.append(q_new)
 
         return configurations
-
 
 
 
