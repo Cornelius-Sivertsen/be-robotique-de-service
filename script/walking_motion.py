@@ -33,6 +33,8 @@ from com_trajectory import ComTrajectory
 from inverse_kinematics import InverseKinematics
 from tools import Constant, Piecewise
 
+import sys
+
 # Computes the trajectory of a swing foot.
 #
 # Input data are
@@ -44,8 +46,6 @@ from tools import Constant, Piecewise
 # The orientation of the foot is kept as in intial pose.
 class SwingFootTrajectory(object):
     def __init__(self, t_init, t_end, init, end, height):
-
-        print(f"assert: init: {init} | end: {end}")
         assert(init[2] == end[2])
         self.t_init = t_init
         self.t_end = t_end
@@ -84,8 +84,8 @@ class SwingFootTrajectory(object):
         elif t > self.t_end:
             t = self.t_end
         
-        x = self.ax*(t-self.t_init)**3+self.bx*(t-self.t_init)+self.dx
-        y = self.ay*(t-self.t_init)**3+self.by*(t-self.t_init)+self.dy
+        x = self.ax*(t-self.t_init)**3+self.bx*(t-self.t_init)**2+self.dx
+        y = self.ay*(t-self.t_init)**3+self.by*(t-self.t_init)**2+self.dy
         z = self.az*(t-self.t_init)**4+self.bz*(t-self.t_init)**3+self.cz*(t-self.t_init)**2+self.dz*(t-self.t_init)+self.ez
         
         return np.array([x,y,z])
@@ -125,52 +125,56 @@ class WalkingMotion(object):
         self.rf_traj = Piecewise()
         # write your code here
 
-        initial_left_foot_position = data.oMi[self.robot.leftFootJointId].translation
-        z_rest = initial_left_foot_position[2]
+        initial_left_foot_position = np.array([0, .1, 0.])
+        initial_right_foot_position = np.array([0, -.1, 0.])
 
-        x_init = initial_left_foot_position[0]
-        y_init = initial_left_foot_position[1]
+        steps_l = steps_[1::2]
+        steps_r = steps_[0::2]
 
-        # initial_step = np.array([x_init,y_init,z_rest])
-
-        # steps_ = [np.append(step, z_rest) for step in steps_]
-
-        # steps_.insert(0,initial_step)
-
-        steps_r = steps_[1::2]
-        steps_l = steps_[0::2]
-
-        # self.lf_traj.segments.append(Constant(0,self.double_support_time,steps_[0]))
-        # self.rf_traj.segments.append(Constant(0,self.double_support_time,steps_[0]))
+        n_r = 0
+        n_l = 0
 
         t_init = 0
         t_end = 0
+        l_init = initial_left_foot_position
+        r_init = initial_right_foot_position
 
         sst = self.single_support_time
         dst = self.double_support_time
 
-        for i,step in enumerate(steps_[:-1]):
+        for i in range(len(steps_)-1):
             t_init = sst * i + dst * (i)
             t_end = t_init + dst
-            self.lf_traj.segments.append(Constant(t_init,t_end,step))
-            self.rf_traj.segments.append(Constant(t_init,t_end,step))
+            self.lf_traj.segments.append(Constant(t_init,t_end,l_init))
+            self.rf_traj.segments.append(Constant(t_init,t_end,r_init))
                                          
             t_init = t_end
             t_end = t_init + sst
-            
-            if i % 2 == 0:
-                self.rf_traj.segments.append(Constant(t_init,t_end,step))
-                self.lf_traj.segments.append(SwingFootTrajectory(t_init,t_end,step,steps_[i+1],self.step_height))
 
+
+            l_end = steps_l[n_l]
+            r_end = steps_r[n_r]
+
+            if (i % 2 == 0):
+                n_r += 1
+
+                self.lf_traj.segments.append(SwingFootTrajectory(t_init,t_end,l_init,l_end,self.step_height))
+                self.rf_traj.segments.append(Constant(t_init,t_end,r_init))
             else:
-                self.lf_traj.segments.append(Constant(t_init,t_end,step))
-                self.rf_traj.segments.append(SwingFootTrajectory(t_init,t_end,step,steps_[i+1],self.step_height))
-        
-        self.lf_traj.segments.append(Constant(t_end,np.inf,steps_[-1]))
-        self.rf_traj.segments.append(Constant(t_end,np.inf,steps_[-1]))
+                n_l += 1
 
+                self.rf_traj.segments.append(SwingFootTrajectory(t_init,t_end,r_init,r_end,self.step_height))
+                self.lf_traj.segments.append(Constant(t_init,t_end,l_init))
+
+            l_init = l_end
+            r_init = r_end
+
+        
         last_step_right = steps_r[-1]
         last_step_left = steps_l[-1]
+
+        self.lf_traj.segments.append(Constant(t_end,np.inf,last_step_left))
+        self.rf_traj.segments.append(Constant(t_end,np.inf,last_step_right))
 
         z_com = com_offset[2]
 
@@ -183,7 +187,8 @@ class WalkingMotion(object):
 
         self.COM_trajectory = ComTrajectory(com_offset[0:2],steps_xy,com_final,z_com)
         X = self.COM_trajectory.compute()
-        times = 0.01 * np.arange(len(X)//2)
+        timestep = self.COM_trajectory.delta_t
+        times = timestep*np.arange(self.COM_trajectory.N+1)
         com_positions = np.array(list(map(self.COM_trajectory, times)))
 
         for com in com_positions:
@@ -205,7 +210,6 @@ class WalkingMotion(object):
             configurations.append(q_new)
 
         return configurations
-
 
 
 
@@ -246,7 +250,6 @@ if __name__ == "__main__":
     lf = np.array(list(map(wm.lf_traj, times)))
     rf = np.array(list(map(wm.rf_traj, times)))
     cop_des = np.array(list(map(wm.COM_trajectory.cop_des, times)))
-    print(cop_des)
     fig = plt.figure()
     ax1 = fig.add_subplot(311)
     ax2 = fig.add_subplot(312)
