@@ -197,7 +197,8 @@ class WalkingMotion(object):
 
         self.COM_trajectory = ComTrajectory(com_offset[0:2],steps_xy,com_final,z_com)
         X = self.COM_trajectory.compute()
-        times = 0.01 * np.arange(len(X)//2)
+        timestep = self.COM_trajectory.delta_t
+        times = timestep*np.arrange(self.COM_trajectory.N+1)
         com_positions = np.array(list(map(self.COM_trajectory, times)))
 
         for com in com_positions:
