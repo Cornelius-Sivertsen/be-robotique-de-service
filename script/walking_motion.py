@@ -84,8 +84,8 @@ class SwingFootTrajectory(object):
         elif t > self.t_end:
             t = self.t_end
         
-        x = self.ax*(t-self.t_init)**3+self.bx*(t-self.t_init)+self.dx
-        y = self.ay*(t-self.t_init)**3+self.by*(t-self.t_init)+self.dy
+        x = self.ax*(t-self.t_init)**3+self.bx*(t-self.t_init)**2+self.dx
+        y = self.ay*(t-self.t_init)**3+self.by*(t-self.t_init)**2+self.dy
         z = self.az*(t-self.t_init)**4+self.bz*(t-self.t_init)**3+self.cz*(t-self.t_init)**2+self.dz*(t-self.t_init)+self.ez
         
         return np.array([x,y,z])
