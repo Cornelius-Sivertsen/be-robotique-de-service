@@ -143,23 +143,14 @@ class WalkingMotion(object):
         dst = self.double_support_time
 
         for i in range(len(steps_)-1):
-            print("=========================================================")
-            print(f"step number {i}")
             t_init = sst * i + dst * (i)
             t_end = t_init + dst
-            print(f"BEFORE CONST: t_init: {t_init}")
-            print(f"BEFORE CONST: t_end: {t_end}")
             self.lf_traj.segments.append(Constant(t_init,t_end,l_init))
             self.rf_traj.segments.append(Constant(t_init,t_end,r_init))
                                          
             t_init = t_end
             t_end = t_init + sst
 
-            print(f"BEFORE STEP: t_init: {t_init}")
-            print(f"BEFORE STEP: t_end: {t_end}")
-
-            print(f"nl: {n_l}")
-            print(f"nr: {n_r}")
 
             l_end = steps_l[n_l]
             r_end = steps_r[n_r]
@@ -167,19 +158,11 @@ class WalkingMotion(object):
             if (i % 2 == 0):
                 n_r += 1
 
-                print(f"l_init: {l_init}")
-                print(f"l_end: {l_end}")
-                print(f"r_init: {r_init}")
-                print(f"r_end: {r_end}")
                 self.lf_traj.segments.append(SwingFootTrajectory(t_init,t_end,l_init,l_end,self.step_height))
                 self.rf_traj.segments.append(Constant(t_init,t_end,r_init))
             else:
                 n_l += 1
 
-                print(f"l_init: {l_init}")
-                print(f"l_end: {l_end}")
-                print(f"r_init: {r_init}")
-                print(f"r_end: {r_end}")
                 self.rf_traj.segments.append(SwingFootTrajectory(t_init,t_end,r_init,r_end,self.step_height))
                 self.lf_traj.segments.append(Constant(t_init,t_end,l_init))
 
@@ -266,10 +249,6 @@ if __name__ == "__main__":
     times = delta_t*np.arange(wm.COM_trajectory.N+1)
     lf = np.array(list(map(wm.lf_traj, times)))
     rf = np.array(list(map(wm.rf_traj, times)))
-
-    for left, right in zip(lf[:,0],rf[:,0]):
-        print(f"l: {left} | r: {right}")
-
     cop_des = np.array(list(map(wm.COM_trajectory.cop_des, times)))
     fig = plt.figure()
     ax1 = fig.add_subplot(311)
