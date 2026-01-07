@@ -97,7 +97,14 @@ class Integrand(object):
         self.derivative = bezier.derivative()
 
     def __call__(self, t):
-        pass
+        p = self.function(t)
+        dp = self.derivative(t)
+        theta = p[2]
+
+        vt = np.dot([cos(theta), sin(theta), 0], dp)
+        vn = np.dot([-sin(theta), cos(theta), 0], dp)
+
+        return 0.5*(vt**2 + self.alpha*(vn**2))
 
 class SlidingMotion(object):
     """
@@ -120,6 +127,14 @@ class SlidingMotion(object):
         Compute the cost of a trajectory represented by a Bezier curve
         """
         assert(len(X.shape) == 1)
+        integrand = Integrand(X)
+        t0 = 0
+        t1 = 1
+        n = 1000
+        integral = simpson(integrand, t0, t1, n)
+        cost_boundary = self.boundaryConstraints(X)
+
+        return integral + self.beta*cost_boundary
 
     def boundaryConstraints(self, X):
         """
@@ -127,11 +142,26 @@ class SlidingMotion(object):
         (resp. at the end) of the trajectory with the unit vector normal to
         the initial (resp. end) orientation.
         """
+        integrand = Integrand(X)
+        p0 = integrand.function(0.0)
+        theta0 = p0[2]
+        dp0 = integrand.derivative(0.0)
+        p1 = integrand.function(1.0)
+        theta1 = p1[2]
+        dp1 = integrand.derivative(1.0)
+
+        cost = np.dot([-sin(theta0), cos(theta0), 0], dp0)**2 + np.dot([-sin(theta1), cos(theta1), 0], dp1)**2
+        
+        return cost
+
 
     def solve(self):
         """
         Solve the optimization problem. Initialize with a straight line
         """
+
+
+        # = fmin_slsqp(self.cost, , f_eqcons = self.constraint_eq, iprint=0)
 
     def leftFootPose(self, pose):
         """
