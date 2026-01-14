@@ -120,6 +120,12 @@ class SlidingMotion(object):
         - end: end configuration specified as (x, y, theta) for the position
                 and orientation in the plane.
         """
+        self.X_end = end
+        self.X_init = 0
+
+        data = robot.model.createData()
+        forwardKinematics(robot.model, data, q0)
+        waist_pose = data.oMi[self.robot.waistJointId]
         pass
 
     def cost(self, X):
@@ -127,7 +133,9 @@ class SlidingMotion(object):
         Compute the cost of a trajectory represented by a Bezier curve
         """
         assert(len(X.shape) == 1)
-        integrand = Integrand(X)
+
+        bezier = Bezier(X)
+        integrand = Integrand(bezier)
         t0 = 0
         t1 = 1
         n = 1000
@@ -142,15 +150,18 @@ class SlidingMotion(object):
         (resp. at the end) of the trajectory with the unit vector normal to
         the initial (resp. end) orientation.
         """
-        integrand = Integrand(X)
-        p0 = integrand.function(0.0)
-        theta0 = p0[2]
-        dp0 = integrand.derivative(0.0)
-        p1 = integrand.function(1.0)
-        theta1 = p1[2]
-        dp1 = integrand.derivative(1.0)
 
-        cost = np.dot([-sin(theta0), cos(theta0), 0], dp0)**2 + np.dot([-sin(theta1), cos(theta1), 0], dp1)**2
+        bezier = Bezier(X)
+        p_init = bezier(0)
+        p_end = bezier(1)
+        dp_init = bezier.derivative(0)
+        dp_end = bezier.derivative(1)
+
+        theta_init = p_init[2]
+        theta_end = p_end[2]
+
+
+        cost = np.dot([-sin(theta_init), cos(theta_init), 0], dp_init)**2 + np.dot([-sin(theta_end), cos(theta_end), 0], dp_end)**2
         
         return cost
 
@@ -159,6 +170,9 @@ class SlidingMotion(object):
         """
         Solve the optimization problem. Initialize with a straight line
         """
+
+        X_init = 0
+        X_end = self.end
 
 
         # = fmin_slsqp(self.cost, , f_eqcons = self.constraint_eq, iprint=0)
