@@ -99,10 +99,11 @@ class Integrand(object):
     def __call__(self, t):
         p = self.function(t)
         dp = self.derivative(t)
+
         theta = p[2]
 
-        vt = np.dot([cos(theta), sin(theta), 0], dp)
-        vn = np.dot([-sin(theta), cos(theta), 0], dp)
+        vt = np.dot(np.array([cos(theta), sin(theta), 0]), dp)
+        vn = np.dot(np.array([-sin(theta), cos(theta), 0]), dp)
 
         return 0.5*(vt**2 + self.alpha*(vn**2))
 
@@ -121,12 +122,18 @@ class SlidingMotion(object):
                 and orientation in the plane.
         """
         self.X_end = end
-        self.X_init = 0
 
         data = robot.model.createData()
         forwardKinematics(robot.model, data, q0)
-        waist_pose = data.oMi[self.robot.waistJointId]
-        pass
+        waist_pose = data.oMi[robot.waistJointId]
+        waist_pose = waist_pose.translation
+
+        x_init = waist_pose[0]
+        y_init = waist_pose[1]
+
+        i,j,k,w = q0[3:7]
+        theta_init = atan2(k,w)*2.0
+        self.X_init = np.array([x_init, y_init, theta_init])
 
     def cost(self, X):
         """
@@ -134,7 +141,11 @@ class SlidingMotion(object):
         """
         assert(len(X.shape) == 1)
 
-        bezier = Bezier(X)
+        bezier = Bezier([self.X_init] + 
+                          [X[3*i:3*(i+1)] for i in range(len(X)//3)] +
+                                                     [self.X_end])
+                
+
         integrand = Integrand(bezier)
         t0 = 0
         t1 = 1
@@ -151,17 +162,23 @@ class SlidingMotion(object):
         the initial (resp. end) orientation.
         """
 
-        bezier = Bezier(X)
-        p_init = bezier(0)
-        p_end = bezier(1)
-        dp_init = bezier.derivative(0)
-        dp_end = bezier.derivative(1)
+        bezier = Bezier([self.X_init] + 
+                          [X[3*i:3*(i+1)] for i in range(len(X)//3)] +
+                                                     [self.X_end])
+                
+
+        bezier_d = bezier.derivative()
+        p_init = self.X_init
+        p_end = self.X_end
+
+        dp_init = bezier_d(0)
+        dp_end = bezier_d(1)
 
         theta_init = p_init[2]
         theta_end = p_end[2]
 
 
-        cost = np.dot([-sin(theta_init), cos(theta_init), 0], dp_init)**2 + np.dot([-sin(theta_end), cos(theta_end), 0], dp_end)**2
+        cost = np.dot(np.array([-sin(theta_init), cos(theta_init), 0]), dp_init)**2 + np.dot(np.array([-sin(theta_end), cos(theta_end), 0]), dp_end)**2
         
         return cost
 
@@ -171,11 +188,13 @@ class SlidingMotion(object):
         Solve the optimization problem. Initialize with a straight line
         """
 
-        X_init = 0
-        X_end = self.end
+        X_init = self.X_init
+        X_end = self.X_end
+
+        control_points_straight_line = np.array([X_init, X_init, X_init, X_end, X_end, X_end]).flatten()
 
 
-        # = fmin_slsqp(self.cost, , f_eqcons = self.constraint_eq, iprint=0)
+        self.control_points_optimal = np.array(fmin_slsqp(self.cost, control_points_straight_line, f_eqcons = self.boundaryConstraints, iprint=0))
 
     def leftFootPose(self, pose):
         """
@@ -195,6 +214,10 @@ class SlidingMotion(object):
 
 
     def computeMotion(self):
+        self.solve()
+        self.slidingPath = Bezier([self.X_init] + 
+                          [self.control_points_optimal[3*i:3*(i+1)] for i in range(len(self.control_points_optimal)//3)] +
+                                                     [self.X_end])
         configs = list()
         return configs
         
