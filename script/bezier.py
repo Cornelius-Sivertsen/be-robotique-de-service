@@ -141,15 +141,15 @@ class SlidingMotion(object):
         """
         assert(len(X.shape) == 1)
 
-        bezier = Bezier([self.X_init] + 
-                          [X[3*i:3*(i+1)] for i in range(len(X)//3)] +
-                                                     [self.X_end])
-                
+        X_array = [self.X_init] + [X[3*i:3*(i+1)] for i in range(len(X)//3)] + [self.X_end]
+
+        # X_array = [X[3*i:3*(i+1)] for i in range(len(X)//3)]
+        bezier = Bezier(X_array)
 
         integrand = Integrand(bezier)
         t0 = 0
         t1 = 1
-        n = 1000
+        n = 100
         integral = simpson(integrand, t0, t1, n)
         cost_boundary = self.boundaryConstraints(X)
 
@@ -157,15 +157,16 @@ class SlidingMotion(object):
 
     def boundaryConstraints(self, X):
         """
-        Computes the scalar product of the x-y velocity at the beginning 
+        Computes the scalar product of the x-y velocity at the beginning
         (resp. at the end) of the trajectory with the unit vector normal to
         the initial (resp. end) orientation.
         """
 
-        bezier = Bezier([self.X_init] + 
-                          [X[3*i:3*(i+1)] for i in range(len(X)//3)] +
-                                                     [self.X_end])
-                
+        bezier = Bezier([self.X_init] +
+                        [X[3*i:3*(i+1)] for i in range(len(X)//3)] +
+                                                    [self.X_end])
+
+        # bezier = Bezier([X[3*i:3*(i+1)] for i in range(len(X)//3)])
 
         bezier_d = bezier.derivative()
         p_init = self.X_init
@@ -191,10 +192,16 @@ class SlidingMotion(object):
         X_init = self.X_init
         X_end = self.X_end
 
-        control_points_straight_line = np.array([X_init, X_init, X_init, X_end, X_end, X_end]).flatten()
+        X_1 = (X_init + X_end)*1/5
+        X_2 = (X_init + X_end)*2/5
+        X_3 = (X_init + X_end)*3/5
+        X_4 = (X_init + X_end)*4/5
 
 
-        self.control_points_optimal = np.array(fmin_slsqp(self.cost, control_points_straight_line, f_eqcons = self.boundaryConstraints, iprint=0))
+        # control_points_straight_line = np.array([X_init, X_1, X_2, X_3, X_4, X_end]).flatten()
+        control_points_straight_line = np.array([X_1, X_2, X_3, X_4]).flatten()
+
+        self.control_points_optimal = np.array(fmin_slsqp(self.cost, control_points_straight_line, f_eqcons = self.boundaryConstraints, iprint=1))
 
     def leftFootPose(self, pose):
         """
@@ -214,11 +221,24 @@ class SlidingMotion(object):
 
 
     def computeMotion(self):
+        from inverse_kinematics import InverseKinematics
         self.solve()
-        self.slidingPath = Bezier([self.X_init] + 
-                          [self.control_points_optimal[3*i:3*(i+1)] for i in range(len(self.control_points_optimal)//3)] +
-                                                     [self.X_end])
-        configs = list()
+        # self.slidingPath = Bezier([self.control_points_optimal[3*i:3*(i+1)] for i in range(len(self.control_points_optimal)//3)])
+        
+        self.slidingPath = Bezier([self.X_init] +
+                        [self.control_points_optimal[3*i:3*(i+1)] for i in range(len(self.control_points_optimal)//3)] +
+                                                    [self.X_end])
+        
+        times = 1e-2*np.arange(101)
+        X = np.array(list(map(sm.slidingPath, times)))
+
+        configs = []
+        # for i, x in enumerate(X):
+            
+
+        
+        
+        
         return configs
         
 if __name__ == '__main__':
