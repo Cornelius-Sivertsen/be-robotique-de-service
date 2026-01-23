@@ -135,6 +135,19 @@ class SlidingMotion(object):
         theta_init = atan2(k,w)*2.0
         self.X_init = np.array([x_init, y_init, theta_init])
 
+        # Find inital distance between feet:
+        left_foot_pose = data.oMi[robot.leftFootJointId]
+        left_foot_pose = left_foot_pose.translation
+        
+        right_foot_pose = data.oMi[robot.rightFootJointId]
+        right_foot_pose = right_foot_pose.translation
+        x_dist = right_foot_pose[0] - left_foot_pose [0]
+        y_dist = right_foot_pose[1] - left_foot_pose [1]
+
+        self.stance_width = np.sqrt((x_dist)**2 + (y_dist)**2)
+
+                
+
     def cost(self, X):
         """
         Compute the cost of a trajectory represented by a Bezier curve
@@ -208,7 +221,18 @@ class SlidingMotion(object):
         Compute the desired pose of the left foot given the values (x,y,theta)
         contained in the input np.array pose.
         """
+        x = pose[0]
+        y = pose[1]
+        theta = pose[2]
+
+        d = self.stance_width/2
+        
         res = np.zeros(3)
+
+        res[0] = x + d*np.cos(theta+np.pi/2)
+        res[1] = y - d*np.sin(theta+np.pi/2)
+        res[2] = theta
+        
         return res
 
     def rightFootPose(self, pose):
@@ -217,6 +241,17 @@ class SlidingMotion(object):
         contained in the input np.array pose.
         """
         res = np.zeros(3)
+        x = pose[0]
+        y = pose[1]
+        theta = pose[2]
+
+        d = self.stance_width/2
+        
+        res = np.zeros(3)
+
+        res[0] = x + d*np.cos(theta+np.pi/2)
+        res[1] = y - d*np.sin(theta+np.pi/2)
+        res[2] = theta
         return res
 
 
@@ -232,13 +267,18 @@ class SlidingMotion(object):
         times = 1e-2*np.arange(101)
         X = np.array(list(map(sm.slidingPath, times)))
 
-        configs = []
-        # for i, x in enumerate(X):
-            
+        self.steps = []
+
+        for i,point in enumerate(X):
+            if (i % 2 == 0):
+                self.steps.append(self.rightFootPose(point))
+            else:
+                self.steps.append(self.leftFootPose(point))
 
         
         
         
+        configs = []
         return configs
         
 if __name__ == '__main__':
@@ -269,6 +309,9 @@ if __name__ == '__main__':
     ax2 = fig.add_subplot(2, 1, 2)
     times = 1e-2*np.arange(101)
     X = np.array(list(map(sm.slidingPath, times)))
+    steps = np.array(sm.steps)
+    print(steps)
     ax1.plot(X[:,0], X[:,1], label="x-y path")
+    ax1.plot(steps[:,0], steps[:,1], label="steps")
     ax2.plot(times, X[:,2])
     plt.show()
