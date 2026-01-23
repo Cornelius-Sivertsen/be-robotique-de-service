@@ -122,6 +122,8 @@ class SlidingMotion(object):
                 and orientation in the plane.
         """
         self.X_end = end
+        self.robot = robot
+        self.q0 = q0
 
         data = robot.model.createData()
         forwardKinematics(robot.model, data, q0)
@@ -229,8 +231,8 @@ class SlidingMotion(object):
         
         res = np.zeros(3)
 
-        res[0] = x + d*np.cos(theta+np.pi/2)
-        res[1] = y - d*np.sin(theta+np.pi/2)
+        res[0] = x - d*np.sin(theta)
+        res[1] = y + d*np.cos(theta)
         res[2] = theta
         
         return res
@@ -249,8 +251,8 @@ class SlidingMotion(object):
         
         res = np.zeros(3)
 
-        res[0] = x + d*np.cos(theta+np.pi/2)
-        res[1] = y - d*np.sin(theta+np.pi/2)
+        res[0] = x + d*np.sin(theta)
+        res[1] = y - d*np.cos(theta)
         res[2] = theta
         return res
 
@@ -275,10 +277,10 @@ class SlidingMotion(object):
             else:
                 self.steps.append(self.leftFootPose(point))
 
-        
-        
-        
-        configs = []
+        print(self.steps)
+
+        wm = WalkingMotion(self.robot)
+        configs = wm.compute(self.q0, self.steps)
         return configs
         
 if __name__ == '__main__':
