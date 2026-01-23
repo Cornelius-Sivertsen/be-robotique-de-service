@@ -46,7 +46,7 @@ import sys
 # The orientation of the foot is kept as in intial pose.
 class SwingFootTrajectory(object):
     def __init__(self, t_init, t_end, init, end, height):
-        assert(init[2] == end[2])
+        
         self.t_init = t_init
         self.t_end = t_end
         self.height = height
@@ -143,6 +143,7 @@ class WalkingMotion(object):
         dst = self.double_support_time
 
         for i in range(len(steps_)-1):
+            print(f"adding trajectory of step {i} / {len(steps_)-1}")
             t_init = sst * i + dst * (i)
             t_end = t_init + dst
             self.lf_traj.segments.append(Constant(t_init,t_end,l_init))
@@ -200,11 +201,15 @@ class WalkingMotion(object):
         ik = InverseKinematics(self.robot)
         configurations = [q0]
 
+        total_configurations = len(com_positions)
+
         for i, (com, left_foot, right_foot) in enumerate(zip(com_positions, left_foot_positions, right_foot_positions)):
             ik.rightFootRefPose.translation = left_foot
             ik.leftFootRefPose.translation = right_foot
             ik.waistRefPose.translation = com
             q_last = configurations[i-1]
+
+            print(f"Solving for configuration {i} / {total_configurations}")
 
             q_new = ik.solve(q_last)
             configurations.append(q_new)
