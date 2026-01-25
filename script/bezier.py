@@ -145,6 +145,7 @@ class SlidingMotion(object):
         right_foot_pose = right_foot_pose.translation
         x_dist = right_foot_pose[0] - left_foot_pose [0]
         y_dist = right_foot_pose[1] - left_foot_pose [1]
+        self.initial_foot_z = right_foot_pose[2]
 
         self.stance_width = np.sqrt((x_dist)**2 + (y_dist)**2)
 
@@ -233,7 +234,7 @@ class SlidingMotion(object):
 
         res[0] = x - d*np.sin(theta)
         res[1] = y + d*np.cos(theta)
-        res[2] = theta
+        res[2] = self.initial_foot_z
         
         return res
 
@@ -253,7 +254,7 @@ class SlidingMotion(object):
 
         res[0] = x + d*np.sin(theta)
         res[1] = y - d*np.cos(theta)
-        res[2] = theta
+        res[2] = self.initial_foot_z
         return res
 
 
@@ -263,10 +264,10 @@ class SlidingMotion(object):
         # self.slidingPath = Bezier([self.control_points_optimal[3*i:3*(i+1)] for i in range(len(self.control_points_optimal)//3)])
         
         self.slidingPath = Bezier([self.X_init] +
-                        [self.control_points_optimal[3*i:3*(i+1)] for i in range(len(self.control_points_optimal)//3)] +
-                                                    [self.X_end])
+                        [self.control_points_optimal[3*i:3*(i+1)] for i in range(len(self.control_points_optimal)//3)] + [self.X_end])
         
-        times = 1e-2*np.arange(101)
+        # times = 1e-2*np.arange(101)
+        times = np.arange(0,1,0.05)
         X = np.array(list(map(sm.slidingPath, times)))
 
         self.steps = []
@@ -277,10 +278,11 @@ class SlidingMotion(object):
             else:
                 self.steps.append(self.leftFootPose(point))
 
-        print(self.steps)
 
-        wm = WalkingMotion(self.robot)
-        configs = wm.compute(self.q0, self.steps)
+        # wm = WalkingMotion(self.robot)
+        # configs = wm.compute(self.q0, self.steps)
+
+        configs = []
         return configs
         
 if __name__ == '__main__':
@@ -312,7 +314,6 @@ if __name__ == '__main__':
     times = 1e-2*np.arange(101)
     X = np.array(list(map(sm.slidingPath, times)))
     steps = np.array(sm.steps)
-    print(steps)
     ax1.plot(X[:,0], X[:,1], label="x-y path")
     ax1.plot(steps[:,0], steps[:,1], label="steps")
     ax2.plot(times, X[:,2])
