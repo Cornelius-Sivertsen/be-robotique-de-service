@@ -49,7 +49,6 @@ class SwingFootTrajectory(object):
         
         self.t_init = t_init
         self.t_end = t_end
-        self.height = height
         # Write your code here
 
         x0 = init[0]
@@ -59,6 +58,8 @@ class SwingFootTrajectory(object):
         z0 = init[2]
         z1 = end[2]
         T = (t_end-t_init)
+
+        self.height = z0 + height
 
         self.ax = -2* (x1-x0)/((T)**3)
         self.bx = 3* (x1-x0)/((T)**2)
@@ -70,7 +71,7 @@ class SwingFootTrajectory(object):
         self.cy = 0
         self.dy = y0
 
-        self.az = (height-z0)*16/(T**4)
+        self.az = (self.height-z0)*16/(T**4)
         self.bz = -2*self.az*T
         self.cz = self.az*T**2
         self.dz = 0
@@ -117,42 +118,43 @@ class WalkingMotion(object):
         # indirectly by controlling the waist.
         data = self.robot.model.createData()
         forwardKinematics(self.robot.model, data, q0)
-        com = centerOfMass(self.robot.model, data, q0)
+        com_init = centerOfMass(self.robot.model, data, q0)
         waist_pose = data.oMi[self.robot.waistJointId]
-        com_offset = waist_pose.translation - com
+        com_offset = waist_pose.translation - com_init
         # Trajectory of left and right feet
         self.lf_traj = Piecewise()
         self.rf_traj = Piecewise()
         # write your code here
 
-        initial_left_foot_position = np.array([0, .1, 0.])
-        initial_right_foot_position = np.array([0, -.1, 0.])
+        left_foot_init_pose = data.oMi[self.robot.leftFootJointId].translation
+        right_foot_init_pose = data.oMi[self.robot.rightFootJointId].translation
 
         steps_l = steps_[1::2]
         steps_r = steps_[0::2]
 
         n_r = 0
         n_l = 0
-
-        t_init = 0
-        t_end = 0
-        l_init = initial_left_foot_position
-        r_init = initial_right_foot_position
+        
+        # start positions for piecewise trajectories for left and right foot
+        l_init = left_foot_init_pose
+        r_init = right_foot_init_pose
 
         sst = self.single_support_time
         dst = self.double_support_time
 
         for i in range(len(steps_)-1):
-            print(f"adding trajectory of step {i} / {len(steps_)-1}")
+            print(f"adding trajectory of step {i+1} / {len(steps_)-1}")
+
+            # Add small constant time wait on each foot
             t_init = sst * i + dst * (i)
             t_end = t_init + dst
             self.lf_traj.segments.append(Constant(t_init,t_end,l_init))
             self.rf_traj.segments.append(Constant(t_init,t_end,r_init))
-                                         
+
+            # Timing for part of step where one foot moves
             t_init = t_end
             t_end = t_init + sst
-
-
+            
             l_end = steps_l[n_l]
             r_end = steps_r[n_r]
 
@@ -177,45 +179,42 @@ class WalkingMotion(object):
         self.lf_traj.segments.append(Constant(t_end,np.inf,last_step_left))
         self.rf_traj.segments.append(Constant(t_end,np.inf,last_step_right))
 
-        z_com = com_offset[2]
+        # the z component for the desired COM is constant equal to the initial value
+        z_com = com_init[2]
 
-        com_final = np.array([
+        com_final_xy = np.array([
             (last_step_left[0]+last_step_right[0])/2,
             (last_step_left[1]+last_step_right[1])/2,
         ])
 
         steps_xy = [step[0:2] for step in steps_]
 
-        self.COM_trajectory = ComTrajectory(com_offset[0:2],steps_xy,com_final,z_com)
+        self.COM_trajectory = ComTrajectory(com_init[0:2],steps_xy,com_final_xy,z_com)
         X = self.COM_trajectory.compute()
         timestep = self.COM_trajectory.delta_t
         times = timestep*np.arange(self.COM_trajectory.N+1)
         com_positions = np.array(list(map(self.COM_trajectory, times)))
 
-        for com in com_positions:
-            np.append(com,z_com)
-
         left_foot_positions = np.array(list(map(self.lf_traj, times))) 
         right_foot_positions = np.array(list(map(self.rf_traj, times))) 
 
         ik = InverseKinematics(self.robot)
-        configurations = [q0]
+        configurations = [q0 for i in com_positions]
 
         total_configurations = len(com_positions)
 
         for i, (com, left_foot, right_foot) in enumerate(zip(com_positions, left_foot_positions, right_foot_positions)):
             ik.rightFootRefPose.translation = left_foot
             ik.leftFootRefPose.translation = right_foot
-            ik.waistRefPose.translation = com
+            ik.waistRefPose.translation = com + com_offset # translate com to waist position
             q_last = configurations[i-1]
 
-            print(f"Solving for configuration {i} / {total_configurations}")
+            print(f"Solving for configuration {i+1} / {total_configurations}")
 
             q_new = ik.solve(q_last)
             configurations.append(q_new)
 
         return configurations
-
 
 
 
@@ -239,16 +238,18 @@ if __name__ == "__main__":
     q0 [robot.name_to_config_index["arm_left_2_joint"]] = .2
     q0 [robot.name_to_config_index["arm_right_2_joint"]] = -.2
     q = ik.solve (q0)
+
+
     robot.display(q)
     wm = WalkingMotion(robot)
     # First two values correspond to initial position of feet
     # Last two values correspond to final position of feet
-    steps = [np.array([0, -.1, 0.]), np.array([0.4, .1, 0.]),
-             np.array([.8, -.1, 0.]), np.array([1.2, .1, 0.]),
-             np.array([1.6, -.1, 0.]), np.array([1.6, .1, 0.])]
+    steps = [np.array([0, -.1, 0.1]), np.array([0.4, .1, 0.1]),
+             np.array([.8, -.1, 0.1]), np.array([1.2, .1, 0.1]),
+             np.array([1.6, -.1, 0.1]), np.array([1.6, .1, 0.1])]
     configs = wm.compute(q, steps)
     for q in configs:
-        time.sleep(1e-2)
+        time.sleep(3e-2)
         robot.display(q)
     delta_t = wm.COM_trajectory.delta_t
     times = delta_t*np.arange(wm.COM_trajectory.N+1)

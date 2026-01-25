@@ -29,6 +29,7 @@ import numpy.linalg
 from scipy.optimize import fmin_slsqp
 from pinocchio import forwardKinematics, log, neutral, log6
 import eigenpy
+import time
 
 class CallbackLogger:
      def __init__(self):
@@ -87,7 +88,7 @@ class InverseKinematics (object):
     def solve (self, q):
         # write your code here
         q_optimal = fmin_slsqp(self.cost, q, f_eqcons = self.constraint_eq, iprint=0)
-
+        
         return q_optimal
 
 if __name__ == "__main__":
@@ -108,5 +109,23 @@ if __name__ == "__main__":
      q0 [robot.name_to_config_index["leg_left_4_joint"]] = .2
      q0 [robot.name_to_config_index["arm_left_2_joint"]] = .2
      q0 [robot.name_to_config_index["arm_right_2_joint"]] = -.2
+
      q = ik.solve (q0)
      robot.display(q)
+
+     ik.rightFootRefPose.translation = np.array ([2, -0.1, 0.1])
+     ik.leftFootRefPose.translation = np.array ([-3, 0.1, 0.1])
+     ik.waistRefPose.translation = np.array ([0, 2, 0.95])
+     q = ik.solve(q0)
+
+     ik.rightFootRefPose.translation = np.array ([-1, -0.1, 0.1])
+     ik.leftFootRefPose.translation = np.array ([-3, 0.1, 0.1])
+     ik.waistRefPose.translation = np.array ([0, 3, 0.95])
+     q = ik.solve(q0)
+
+     ik.rightFootRefPose.translation = np.array ([1, -0.1, 0.1])
+     ik.leftFootRefPose.translation = np.array ([-3, 0.1, 0.1])
+     ik.waistRefPose.translation = np.array ([1.5, -2, 0.95])
+     q = ik.solve(q0)
+
+     
